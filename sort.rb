@@ -1,3 +1,7 @@
+#
+# License: Public Domain
+#
+
 # Original Author: Keith Schwarz (htiek@cs.stanford.edu)
 #
 # Translated to Ruby by Chuck Remes (chuckremes on github)
