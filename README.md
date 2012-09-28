@@ -43,6 +43,8 @@ On my machine, SmoothSort starts to beat MergeSort when the array size
 grows beyond about 50 elements.
 
 ````
+Charles-Remess-MacBook-Pro:smooth-sort cremes$ rbx -v
+rubinius 2.0.0dev (1.8.7 a69025cb yyyy-mm-dd JI) [x86_64-apple-darwin10.8.0]
 Charles-Remess-MacBook-Pro:smooth-sort cremes$ rbx sort.rb 
 Rehearsal -----------------------------------------------------------------
 built-in sort small array       0.002481   0.000016   0.002497 (  0.002328)
@@ -70,6 +72,34 @@ Running the same benchmark on MRI and JRuby is just an embarrassment for
 SmoothSort. The native sorting implementations clearly show how far Ruby 
 runtimes have to go before they can execute Ruby code as fast as a lower
 level language like C or Java. But I am hopeful!
+
+JRuby
+````
+Charles-Remess-MacBook-Pro:smooth-sort cremes$ rvm jruby-head
+Charles-Remess-MacBook-Pro:smooth-sort cremes$ ruby -v
+jruby 1.7.0.RC1 (1.9.3p203) 2012-09-26 8e849de on Java HotSpot(TM) 64-Bit Server VM 1.6.0_35-b10-428-10M3811 [darwin-x86_64]
+Charles-Remess-MacBook-Pro:smooth-sort cremes$ ruby --server sort.rb 
+Rehearsal ------------------------------------------------------------------
+built-in sort small array        0.020000   0.000000   0.020000 (  0.005000)
+built-in sort medium array       0.110000   0.000000   0.110000 (  0.042000)
+built-in sort large array        0.730000   0.010000   0.740000 (  0.374000)
+built-in sort giant array        3.380000   0.040000   3.420000 (  3.382000)
+smoothsort small array           0.210000   0.000000   0.210000 (  0.126000)
+smoothsort medium array          2.360000   0.070000   2.430000 (  0.831000)
+smoothsort large array           7.810000   0.090000   7.900000 (  7.472000)
+smoothsort giant array         107.570000   0.420000 107.990000 (105.650000)
+------------------------------------------------------- total: 122.820000sec
+
+                                     user     system      total        real
+built-in sort small array        0.010000   0.000000   0.010000 (  0.003000)
+built-in sort medium array       0.000000   0.000000   0.000000 (  0.005000)
+built-in sort large array        0.210000   0.000000   0.210000 (  0.204000)
+built-in sort giant array        3.130000   0.010000   3.140000 (  3.128000)
+smoothsort small array           0.000000   0.000000   0.000000 (  0.004000)
+smoothsort medium array          0.080000   0.000000   0.080000 (  0.083000)
+smoothsort large array           7.500000   0.020000   7.520000 (  7.357000)
+smoothsort giant array         101.210000   0.300000 101.510000 ( 99.514000)
+````
 
 What's Next?
 ------------
