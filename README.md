@@ -16,8 +16,8 @@ and some of the details necessary for its proper operation, please see
              http://www.keithschwarz.com/smoothsort/
 
 This implementation is designed to work on a 64-bit machine. Also,
-I've used the tricky O(1) optimization to use a constant amount of space
-given the fact that the machine is 32 bits.
+I've used the tricky O(1) optimization to use a constant amount of space.
+See Keith's write-up for more information.
 
 
 Benchmarks
@@ -42,6 +42,7 @@ MergeSort implementation in Rubinius.
 On my machine, SmoothSort starts to beat MergeSort when the array size
 grows beyond about 50 elements.
 
+````
 Charles-Remess-MacBook-Pro:smooth-sort cremes$ rbx sort.rb 
 Rehearsal -----------------------------------------------------------------
 built-in sort small array       0.002481   0.000016   0.002497 (  0.002328)
@@ -63,7 +64,7 @@ smoothsort small array          0.002135   0.000010   0.002145 (  0.002147)
 smoothsort medium array         0.055996   0.000080   0.056076 (  0.056160)
 smoothsort large array          4.783645   0.008621   4.792266 (  4.795984)
 smoothsort giant array         59.128042   0.087313  59.215355 ( 59.241190)
-
+````
 
 Running the same benchmark on MRI and JRuby is just an embarrassment for
 SmoothSort. The native sorting implementations clearly show how far Ruby 
