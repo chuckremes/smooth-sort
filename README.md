@@ -31,7 +31,7 @@ also written in Ruby. This puts the SmoothSort implementation on an even
 playing field.
 
 SmoothSort has a time complexity of O(n lg n) on random data and O( n ) 
-for sorted data. It's space complexity is O( 1 ).
+for sorted data. Its space complexity is O( 1 ).
 
 As with most "big O" measurements, there is a constant "C" out there in
 front of the time complexity that most people ignore, but for SmoothSort 
