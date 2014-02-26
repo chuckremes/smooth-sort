@@ -20,24 +20,114 @@
  
  
 # Convenience class for storing the bitvector (+trees+) and the
-# +smallest_tree_size+. Also provides a few convenience methods for
+# +smallest_tree_size+. The +smallest_tree_size+ stores the
+# "order" of the Leonardo Heap (0 through whatever) so it actually
+# points to the lowest bit that is set so we can cheaply determine
+# the lowest order.
+# 
+# Also provides a few convenience methods for
 # determining if a we have a tree of order N in the bitvector.
 #
 class HeapShape
   attr_accessor :trees, :smallest_tree_size
   
-  def initialize
-    @trees = 0
-    @smallest_tree_size = nil
+  def initialize(trees = 0, smallest = 0)
+    @trees = trees
+    @smallest_tree_size = smallest
+  end
+  
+  def transform_shape_to_ignore_rightmost_heap
+    HeapShape.new(@trees >> 1, @smallest_tree_size + 1)
+  end
+  
+  def tree_bit_set?(bit)
+    (@trees & bit) == bit
+  end
+  
+  def empty_heap?
+    !tree_bit_set?(1)
   end
   
   def has_trees?
     @trees > 0
   end
   
-  def has_tree_of_size?(size)
-    size += 1
-    (@trees & size) == size
+  def has_tree_of_order?(order)
+    order += 1
+    (@trees & order) == order
+  end
+  
+  def partition_as_single_tree
+    @trees |= 1
+    @smallest_tree_size = 1
+  end
+  
+  # True when there are adjacent Leonardo trees of order 0 and 1.
+  # We test for the 1st and 2nd bits to be set.
+  def merge?
+    tree_bit_set?(3)
+  end
+  
+  def merge_two_smallest_trees
+    @trees >>= 2
+    @trees |= 1
+    @smallest_tree_size += 2
+  end
+  
+  def last_heap_size_one?
+    @smallest_tree_size == 1
+  end
+  
+  def last_heap_size_zero_or_one?
+    @smallest_tree_size <= 1
+  end
+  
+  def add_singleton_heap_order_one
+    @trees <<= 1
+    @trees |= 1
+    @smallest_tree_size = 0
+  end
+  
+  def add_singleton_heap_order_zero
+    @trees <<= (@smallest_tree_size - 1)
+    @trees |= 1
+    @smallest_tree_size = 1
+  end
+  
+  def find_previous_heap
+    begin
+      @trees >>= 1
+      @smallest_tree_size += 1
+    end while empty_heap?
+  end
+  
+  def find_previous_heap_exhaustively
+    begin
+      @trees >>= 1
+      @smallest_tree_size += 1
+    end while has_trees? && empty_heap?
+  end
+  
+  def partition_tree
+    if empty_heap?
+      partition_as_single_tree
+    
+    elsif merge?
+      merge_two_smallest_trees
+      
+    elsif @smallest_tree_size == 1
+      add_singleton_heap_order_one
+      
+    else
+      add_singleton_heap_order_zero
+    end
+  end
+  
+  def expose_last_two_subheaps
+    @trees &= ~1
+    @trees <<= 2
+    @trees |= 3
+    @smallest_tree_size -= 2
   end
   
   def inspect
@@ -54,8 +144,28 @@ end
 #     Worse Case: O(n lg n)
 #     Best Case : O(n)  # data is already sorted or mostly sorted
 #
+# Even though this has great theoretical performance, it is usually trounced
+# by merge sort. Note that "Big O" always has a constant C factor sitting out
+# front, e.g. C * O(n lg n). In the case of smoothsort, that C is rather large
+# so even though the number of comparisons and swaps is minimized, there is a 
+# LOT OF BOOKKEEPING WORK to do to accomplish the task.
+#
+# That said, this is a superior version of heapsort. Heapsort is easier to
+# understand, but smoothsort has the adaptive characteristic that allows it
+# to approach O(n) when the dataset is already mostly sorted.
+#
 class SmoothSort
-  # All of the Leonardo Numbers that fit in 64 bits
+  # All of the Leonardo Numbers that fit in 64 bits.
+  #
+  # Note that the position in the array corresponds to the heap order.
+  #
+  # e.g. 1, 1, 3, 5, 9, 15, 25, 41
+  #      0  1  2  3  4  5   6   7
+  #
+  # This fact is utilized as an optimization to track the heap order for all trees
+  # in a single 64-bit integer by settings bits corresponding to the heap order. That is,
+  # a tree with heap order 3 has the 4th bit set!
+  #
   Leonardo_numbers = [
           1, 1, 3, 5, 9, 15, 25, 41, 67, 109, 177, 287, 465, 753, 1219, 1973, 3193, 5167, 8361, 13529, 21891,
           35421, 57313, 92735, 150049, 242785, 392835, 635621, 1028457, 1664079, 2692537, 4356617, 7049155, 
@@ -74,24 +184,16 @@ class SmoothSort
   def sort(array)
     return array unless array.size > 1
     
-    @array = array
+    @array, size = array, array.size
     shape = HeapShape.new
-    shape.smallest_tree_size = 0
     
-    size = array.size
-    
-    i = 0
-    while i < size
+    size.times do |i|
       leonardo_heap_add(0, i, size, shape)
-      i += 1
     end
 
-    # move the index back to the last entry in preparation for the reverse iteration
-    i -= 1
-    
-    while i > 0
+    # start with the last entry in preparation for the reverse iteration
+    (size - 1).downto(0) do |i|
       leonard_heap_remove(0, i, shape)
-      i -= 1
     end
     
     @array
@@ -142,17 +244,17 @@ class SmoothSort
     end
   end
   
-  def leonardo_heap_rectify(start, finish, trees, smallest_tree_size)
+  def leonardo_heap_rectify(start, finish, shape)
     index = finish - 1
     
     while true
-      left_heap_size = smallest_tree_size
+      left_heap_size = shape.smallest_tree_size
       
       break if (index - start) == (Leonardo_numbers.at(left_heap_size) - 1)
       
       node_index = index
       
-      if smallest_tree_size > 1
+      if (smallest_tree_size = shape.smallest_tree_size) > 1
         large_child = larger_child(index, smallest_tree_size)
         
         # pick up a new index if the current one has a larger child
@@ -162,19 +264,19 @@ class SmoothSort
       left_heap_index = index - Leonardo_numbers.at(left_heap_size)
       
       # ...
-      break unless smaller_root_than_child?(node_index, left_heap_index)
-      
-      # otherwise, swap elements and adjust our location
-      @array[index], @array[left_heap_index] = @array.at(left_heap_index), @array.at(index)
-      index = left_heap_index
-      
-      # scan down until we find the heap before this one. We do this by continuously
-      # shifting down the tree bitvector and bumping up the size of the smallest
-      # tree until we hit a new tree
-      begin
-        trees >>= 1
-        smallest_tree_size += 1
-      end until ((trees & 1) == 1)
+      unless smaller_root_than_child?(node_index, left_heap_index)
+        break
+        
+      else      
+        # otherwise, swap elements and adjust our location
+        @array[index], @array[left_heap_index] = @array.at(left_heap_index), @array.at(index)
+        index = left_heap_index
+        
+        # scan down until we find the heap before this one. We do this by continuously
+        # shifting down the tree bitvector and bumping up the size of the smallest
+        # tree until we hit a new tree
+        shape.find_previous_heap
+      end
     end
     
     # finally, rebalance the current heap
@@ -190,27 +292,7 @@ class SmoothSort
   end
   
   def leonardo_heap_add(start, finish, heap_finish, shape)
-    trees = shape.trees
-    
-    if !((trees & 1) == 1)
-      shape.trees |= 1
-      shape.smallest_tree_size = 1
-    
-    elsif ((trees & 2) == 2) && ((trees & 1) == 1)
-      shape.trees >>= 2
-      shape.trees |= 1
-      shape.smallest_tree_size += 2
-      
-    elsif shape.smallest_tree_size == 1
-      shape.trees <<= 1
-      shape.trees |= 1
-      shape.smallest_tree_size = 0
-      
-    else
-      shape.trees <<= shape.smallest_tree_size - 1
-      shape.trees |= 1
-      shape.smallest_tree_size = 1
-    end
+    shape.partition_tree
     
     # We have just finished setting up a new tree. We need to see if this
     # tree is at its final size. If so, we'll do a full rectify on it. 
@@ -236,35 +318,29 @@ class SmoothSort
     
     # if not the last heap, rebalance the current heap
     unless last
-      rebalance_single_heap(finish, smallest_tree_size)
+      rebalance_single_heap(finish, shape.smallest_tree_size)
     else
-      leonardo_heap_rectify(start, finish + 1, shape.trees, smallest_tree_size)
+      leonardo_heap_rectify(start, finish + 1, shape.dup)
     end
   end
   
   def leonard_heap_remove(start, finish, shape)
     if shape.smallest_tree_size <= 1
-      begin
-        shape.trees >>= 1
-        shape.smallest_tree_size += 1
-      end while shape.trees > 0 && !((shape.trees & 1) == 1)
+      shape.find_previous_heap_exhaustively
+
+    else    
+      heap_leonardo_order = shape.smallest_tree_size
+      shape.expose_last_two_subheaps
+            
+      left_heap = first_child(finish, heap_leonardo_order)
+      right_heap = second_child(finish)
       
-      return
+      leonardo_heap_rectify(start, left_heap + 1, shape.transform_shape_to_ignore_rightmost_heap)
+      leonardo_heap_rectify(start, right_heap + 1, shape.dup)
     end
-    
-    heap_leonardo_order = shape.smallest_tree_size
-    shape.trees &= ~1 # unset the first bit
-    shape.trees <<= 2
-    shape.trees |= 3 # sets bits 1 and 0
-    shape.smallest_tree_size -= 2
-    
-    left_heap = first_child(finish, heap_leonardo_order)
-    right_heap = second_child(finish)
-    
-    leonardo_heap_rectify(start, left_heap + 1, shape.trees >> 1, shape.smallest_tree_size + 1)
-    leonardo_heap_rectify(start, right_heap + 1, shape.trees, shape.smallest_tree_size)
   end
 end # SmoothSort
+
 
 
 # Run this from the Rubinius parent directory:
